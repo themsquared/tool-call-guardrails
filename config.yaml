@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=https://agentgateway.dev/schema/config
+config:
+  adminAddr: "off"
+mcp:
+  port: 13000
+  policies:
+    cors:
+      allowOrigins: ["*"]
+      allowHeaders: ["*"]
+      exposeHeaders: ["Mcp-Session-Id"]
+    mcpGuardrails:
+      processors:
+      # 1. Reject before anything else runs. This blocks the call before the
+      #    tool ever executes -- not after, like a guardrail scanning a reply.
+      - kind: expression
+        methods: {"tools/call": request}
+        condition: >-
+          mcp.params.name == 'run_support_macro' &&
+          has(mcp.params.arguments) &&
+          has(mcp.params.arguments.raw_command) &&
+          mcp.params.arguments.raw_command.contains('rm -rf')
+        reject: "raw_command contains a destructive shell pattern; this macro requires human review"
+
+      # 2. Mask PII in arguments before they reach the upstream tool at all,
+      #    so a leaked email never even gets written into the support macro.
+      - kind: expression
+        methods: {"tools/call": request}
+        condition: >-
+          mcp.params.name == 'run_support_macro' &&
+          has(mcp.params.arguments) &&
+          has(mcp.params.arguments.macro)
+        transform: >-
+          mcp.params.with(p, p.merge({
+            'arguments': p.arguments.merge({
+              'macro': p.arguments.macro.regexReplaceAll(
+                '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+[.][A-Za-z]{2,}',
+                '[EMAIL]'
+              )
+            })
+          }))
+
+      # 3. Mask secrets in what the tool hands back, before the result ever
+      #    reaches the client or gets pasted into a model's context.
+      - kind: expression
+        methods: {"tools/call": response}
+        condition: has(mcp.result.content)
+        transform: >-
+          mcp.result.with(r, r.merge({
+            'content': r.content.map(item,
+              item.type == 'text'
+                ? item.merge({'text': item.text.regexReplaceAll(
+                    'sk-live-[A-Za-z0-9-]+', '[REDACTED_KEY]'
+                  )})
+                : item
+            )
+          }))
+  targets:
+  - name: support-tools
+    stdio:
+      cmd: node
+      args: ["mcp-server/server.js"]

@@ -1,0 +1,13 @@
+{
+  "name": "support-tools-mcp-server",
+  "version": "1.0.0",
+  "description": "Toy MCP server exposing two support-desk tools, for demonstrating agentgateway MCP guardrails",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1"
+  }
+}
