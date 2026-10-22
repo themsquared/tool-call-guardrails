@@ -1,5 +1,7 @@
 # tool-call-guardrails
 
+> 📖 **Read the write-up:** [MCP Tool-Call Guardrails: Gating Agents Before the Tool Runs](https://webofmike.com/tool-call-guardrails/)
+
 Guardrails on MCP tool calls, enforced at the gateway, before the tool ever executes.
 Not a prompt filter: the policy sees the actual `tools/call` request and response,
 in-process, with no external service to stand up.
